@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 资源生成辅助字体（见 scripts/assets/README.md）
+scripts/assets/*.otf

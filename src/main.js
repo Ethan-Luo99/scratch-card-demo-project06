@@ -1,60 +1,67 @@
-import './style.css'
-import heroImg from './assets/hero.png'
-import javascriptLogo from './assets/javascript.svg'
-import viteLogo from './assets/vite.svg'
-import { setupCounter } from './counter.js'
+import './style.css';
+import { createScratchCard } from './scratch-card/index.js';
 
-document.querySelector('#app').innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${javascriptLogo}" class="framework" alt="JavaScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.js</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+const canvas = document.getElementById('scratch-canvas');
+const resetBtn = document.getElementById('reset-btn');
+const progressBar = document.getElementById('progress-bar');
+const progressText = document.getElementById('progress-text');
+const statusEl = document.getElementById('status');
 
-<div class="ticks"></div>
+const CARD_W = 375;
+const CARD_H = 500;
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-          <img class="button-icon" src="${javascriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+let completed = false;
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+// 调试/自动化钩子（不影响 API）：暴露真实调用次数与组件实例，供无头 E2E 断言。
+const __scratchDebug = { completeCount: 0, resetCount: 0, restoredCount: 0, card: null };
+window.__scratchDebug = __scratchDebug;
 
-setupCounter(document.querySelector('#counter'))
+function setStatus(text) {
+  statusEl.textContent = `状态：${text}`;
+}
+
+const card = createScratchCard({
+  el: canvas,
+  width: CARD_W,
+  height: CARD_H,
+  prizeImage: '/prize.png',
+  coat: {
+    type: 'image',
+    imageUrl: '/coat.png',
+    fit: 'cover',
+    color: '#c0c0c0',
+  },
+  brushSize: 28,
+  threshold: 0.7,
+  dprCap: 2,
+  onProgress(ratio) {
+    const pct = Math.round(ratio * 100);
+    progressBar.style.width = `${pct}%`;
+    progressText.textContent = `${pct}%`;
+    if (!completed && ratio > 0) setStatus('刮擦中');
+  },
+  onComplete() {
+    completed = true;
+    __scratchDebug.completeCount++;
+    progressBar.style.width = '100%';
+    progressText.textContent = '100%';
+    setStatus('已揭晓 🎉');
+  },
+  onReset() {
+    completed = false;
+    __scratchDebug.resetCount++;
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+    setStatus('待开始');
+  },
+  onCoatRestored() {
+    completed = false;
+    __scratchDebug.restoredCount++;
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+    setStatus('涂层已恢复，请重新刮开');
+  },
+});
+
+resetBtn.addEventListener('click', () => card.reset());
+__scratchDebug.card = card;
