@@ -1,13 +1,30 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>scratch-card-fabric</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>刮刮卡演示 · Fabric.js v7</title>
   </head>
   <body>
-    <div id="app"></div>
+    <main class="page">
+      <h1>刮刮卡</h1>
+      <p class="hint">刮开涂层，露出面积超过 70% 自动揭晓</p>
+
+      <!-- §7.1 分层：position:relative 宿主，奖品 DOM img 在底，canvas 由 v7 包裹 -->
+      <div id="scratch-card" style="position: relative; width: 375px; height: 500px">
+        <img class="prize" src="/prize.png" alt="奖品" />
+        <canvas id="fabric-canvas" width="375" height="500"></canvas>
+      </div>
+
+      <div class="panel">
+        <div class="progress">
+          刮开进度：<strong id="ratio">0%</strong>
+          <span id="status" class="status status-idle">未开始</span>
+        </div>
+        <button id="reset" type="button">重置</button>
+      </div>
+    </main>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

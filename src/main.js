@@ -1,60 +1,45 @@
 import './style.css'
-import heroImg from './assets/hero.png'
-import javascriptLogo from './assets/javascript.svg'
-import viteLogo from './assets/vite.svg'
-import { setupCounter } from './counter.js'
+import { createScratchCard } from './scratch-card/index.js'
 
-document.querySelector('#app').innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${javascriptLogo}" class="framework" alt="JavaScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.js</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+const ratioEl = document.querySelector('#ratio')
+const statusEl = document.querySelector('#status')
+const resetBtn = document.querySelector('#reset')
 
-<div class="ticks"></div>
+function setStatus(text, cls) {
+  statusEl.textContent = text
+  statusEl.className = `status ${cls}`
+}
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-          <img class="button-icon" src="${javascriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+const card = await createScratchCard({
+  el: document.querySelector('#fabric-canvas'),
+  width: 375,
+  height: 500,
+  prizeImage: '/prize.png',
+  coat: {
+    type: 'image',
+    imageUrl: '/coat.svg',
+    color: '#c0c0c0',
+    fit: 'cover',
+  },
+  brushSize: 28,
+  threshold: 0.7,
+  dprCap: 2,
+  onProgress(ratio) {
+    ratioEl.textContent = `${Math.round(ratio * 100)}%`
+    if (ratio > 0) setStatus('刮擦中…', 'status-scratching')
+  },
+  onComplete() {
+    ratioEl.textContent = '100%'
+    setStatus('已揭晓 🎉', 'status-revealed')
+  },
+  onReset() {
+    ratioEl.textContent = '0%'
+    setStatus('未开始', 'status-idle')
+  },
+  onCoatRestored() {
+    ratioEl.textContent = '0%'
+    setStatus('涂层已恢复，请重新刮开', 'status-restored')
+  },
+})
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
-
-setupCounter(document.querySelector('#counter'))
+resetBtn.addEventListener('click', () => card.reset())
