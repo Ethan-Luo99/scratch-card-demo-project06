@@ -10,6 +10,10 @@ import { interpolatePoints } from '../src/scratch-card/geometry.js';
 import { createStateMachine } from '../src/scratch-card/state.js';
 import { createFrameBatcher } from '../src/scratch-card/frame.js';
 import { computeStep, ratioFromImageData } from '../src/scratch-card/measure.js';
+import {
+  createScratchCardRegistry,
+  resolveDevicePixelRatio,
+} from '../src/scratch-card/registry.js';
 
 // §3.2 R3：文档给定场景 —— 80px CSS 跳变（快速滑动）。
 test('§3.2 插值补点：80px CSS 跳变（dpr=2）下相邻点间距不超过笔刷物理半径', () => {
@@ -196,4 +200,74 @@ test('§3.1 alpha<16 判透明：构造半刮 ImageData 得到约 50% ratio', ()
   edge[7] = 16;
   const r2 = ratioFromImageData({ data: edge }, 2, 1, 1);
   assert.equal(r2.cleared, 1);
+});
+
+// ---------- 多实例：注册表 + dpr 全局决策 ----------
+
+test('多实例注册表：register 发配自增 id，unregister 后 size 归零', () => {
+  const reg = createScratchCardRegistry();
+  assert.equal(reg.size(), 0);
+  const idA = reg.register(2);
+  const idB = reg.register(1);
+  assert.notEqual(idA, idB, '两个实例必须拿到不同 id');
+  assert.equal(reg.size(), 2);
+  assert.ok(reg.has(idA) && reg.has(idB));
+  reg.unregister(idA);
+  assert.equal(reg.size(), 1);
+  assert.ok(!reg.has(idA) && reg.has(idB));
+  reg.unregister(idB);
+  assert.equal(reg.size(), 0);
+});
+
+test('多实例注册表：重复 destroy（重复 unregister）幂等，不误伤存活实例', () => {
+  const reg = createScratchCardRegistry();
+  const idA = reg.register(2);
+  const idB = reg.register(2);
+  reg.unregister(idA);
+  reg.unregister(idA); // 重复注销不得抛错、不得影响 idB
+  reg.unregister(idA);
+  assert.equal(reg.size(), 1);
+  assert.ok(reg.has(idB), '重复注销 A 不得误删 B');
+  assert.equal(reg.maxDprCap(), 2);
+  reg.unregister(idB);
+  assert.equal(reg.size(), 0);
+  assert.equal(reg.maxDprCap(), 1, '无存活实例时 cap 回落为 1');
+});
+
+test('dpr 决策：cap2 先建 + cap1 后建，后建实例不得拉低全局 dpr', () => {
+  const reg = createScratchCardRegistry();
+  const windowDpr = 3; // 高 dpr 设备
+
+  reg.register(2); // 第一个实例 dprCap=2
+  const first = resolveDevicePixelRatio(windowDpr, reg.maxDprCap());
+  assert.equal(first, 2, '首个实例：min(3, 2) = 2');
+
+  reg.register(1); // 第二个实例 dprCap=1（更低）
+  const afterSecond = resolveDevicePixelRatio(windowDpr, reg.maxDprCap());
+  assert.equal(
+    afterSecond,
+    2,
+    '低 cap 实例后建：全局仍取存活 cap 最大值 2，先建实例 retina 不被静默降级',
+  );
+});
+
+test('dpr 决策：cap1 先建 + cap2 后建，全局 dpr 随高 cap 实例抬升', () => {
+  const reg = createScratchCardRegistry();
+  const windowDpr = 3;
+
+  reg.register(1); // 第一个实例 dprCap=1
+  const first = resolveDevicePixelRatio(windowDpr, reg.maxDprCap());
+  assert.equal(first, 1, '首个实例：min(3, 1) = 1');
+
+  reg.register(2); // 第二个实例 dprCap=2（更高）
+  const afterSecond = resolveDevicePixelRatio(windowDpr, reg.maxDprCap());
+  assert.equal(afterSecond, 2, '高 cap 实例后建：全局抬升为 2（只升不降）');
+});
+
+test('dpr 决策：resolveDevicePixelRatio 边界（封顶/地板/非法输入）', () => {
+  assert.equal(resolveDevicePixelRatio(3, 2), 2, 'windowDpr 超 cap 时被封顶');
+  assert.equal(resolveDevicePixelRatio(1.5, 2), 1.5, 'windowDpr 低于 cap 时取 windowDpr');
+  assert.equal(resolveDevicePixelRatio(0, 2), 1, '非法 windowDpr 兜底为 1');
+  assert.equal(resolveDevicePixelRatio(undefined, 2), 1, '缺省 windowDpr 兜底为 1');
+  assert.equal(resolveDevicePixelRatio(3, 0), 1, '非法 cap 兜底为 1');
 });

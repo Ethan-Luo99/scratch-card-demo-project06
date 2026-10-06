@@ -16,10 +16,40 @@ body {
 }
 
 .page {
-  max-width: 460px;
+  max-width: 880px;
   margin: 0 auto;
   padding: 28px 16px 48px;
   text-align: center;
+}
+
+/* 双实例并排布局：宽屏并排、窄屏纵向堆叠。 */
+.cards-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.card-unit {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card-name {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(242, 238, 252, 0.85);
+}
+
+.peer-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffd86f;
 }
 
 .title {
@@ -35,22 +65,17 @@ body {
 }
 
 /* 窄屏用 transform 等比缩放显示；缩放不改变布局盒尺寸，
-   逻辑坐标恒为 375x500，ResizeObserver 不会因缩放触发 relayout。 */
+   逻辑坐标恒为声明的 CSS 尺寸，ResizeObserver 不会因缩放触发 relayout。 */
 .card-viewport {
   container-type: inline-size;
   position: relative;
-  height: min(500px, 133.333cqw); /* 500 * min(1, cqw/375)，cqw 占比形式 */
+  width: 100%;
 }
 
-/* §7.1：奖品层 <img> 绝对定位铺底，Fabric 容器覆盖其上；固定 375x500。 */
+/* §7.1：奖品层 <img> 绝对定位铺底，Fabric 容器覆盖其上。 */
 .card-host {
   position: absolute;
   top: 0;
-  /* 缩放后视觉半宽居中：left = 50% 容器宽 - 187.5*scale */
-  left: calc(50cqw - min(187.5px, 50cqw));
-  width: 375px;
-  height: 500px;
-  transform: scale(min(1, 0.266667cqw)); /* 375/375=1；每 cqw 贡献 1/375 */
   transform-origin: top left;
   border-radius: 18px;
   overflow: hidden;
@@ -58,6 +83,29 @@ body {
     0 24px 60px rgba(0, 0, 0, 0.45),
     0 0 0 1px rgba(255, 255, 255, 0.12);
   touch-action: none;
+}
+
+/* 卡片 A：375x500；卡片 B：300x300。缩放系数 = 100cqw / 卡片宽。 */
+#card-a .card-viewport {
+  width: 375px;
+  max-width: 100%;
+  height: min(500px, 133.333cqw);
+}
+
+#card-host-a {
+  left: calc(50cqw - min(187.5px, 50cqw));
+  transform: scale(min(1, 0.266667cqw));
+}
+
+#card-b .card-viewport {
+  width: 300px;
+  max-width: 100%;
+  height: min(300px, 100cqw);
+}
+
+#card-host-b {
+  left: calc(50cqw - min(150px, 50cqw));
+  transform: scale(min(1, 0.333333cqw));
 }
 
 .panel {

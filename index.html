@@ -4,31 +4,56 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>刮刮卡 · Fabric v7</title>
+    <title>刮刮卡 · Fabric v7 · 多实例</title>
   </head>
   <body>
     <main class="page">
-      <h1 class="title">刮刮卡 Demo</h1>
-      <p class="subtitle">在涂层上按住刮开，露出 70% 自动揭晓奖品</p>
+      <h1 class="title">刮刮卡 Demo · 双实例</h1>
+      <p class="subtitle">两张卡片互不干扰，任一揭晓 70% 时另一张会收到提示</p>
 
-      <div class="card-viewport">
-        <div id="card-host" class="card-host">
-          <canvas id="scratch-canvas" width="375" height="500"></canvas>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="progress-row">
-          <span class="progress-label">刮开进度</span>
-          <div class="progress-track">
-            <div id="progress-bar" class="progress-bar"></div>
+      <div class="cards-row">
+        <section class="card-unit" id="card-a">
+          <h2 class="card-name">卡片 A · 375×500</h2>
+          <div class="card-viewport">
+            <div id="card-host-a" class="card-host" style="width:375px;height:500px">
+              <canvas id="scratch-canvas-a" width="375" height="500"></canvas>
+            </div>
           </div>
-          <span id="progress-text" class="progress-text">0%</span>
-        </div>
-        <button id="reset-btn" type="button" class="reset-btn">重置</button>
-      </div>
+          <div class="panel">
+            <div class="progress-row">
+              <span class="progress-label">刮开进度</span>
+              <div class="progress-track">
+                <div id="progress-bar-a" class="progress-bar"></div>
+              </div>
+              <span id="progress-text-a" class="progress-text">0%</span>
+            </div>
+            <button id="reset-btn-a" type="button" class="reset-btn">重置</button>
+          </div>
+          <p id="status-a" class="status">状态：待开始</p>
+          <p id="peer-hint-a" class="peer-hint" hidden>对方已揭晓 🎉</p>
+        </section>
 
-      <p id="status" class="status">状态：待开始</p>
+        <section class="card-unit" id="card-b">
+          <h2 class="card-name">卡片 B · 300×300</h2>
+          <div class="card-viewport">
+            <div id="card-host-b" class="card-host" style="width:300px;height:300px">
+              <canvas id="scratch-canvas-b" width="300" height="300"></canvas>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="progress-row">
+              <span class="progress-label">刮开进度</span>
+              <div class="progress-track">
+                <div id="progress-bar-b" class="progress-bar"></div>
+              </div>
+              <span id="progress-text-b" class="progress-text">0%</span>
+            </div>
+            <button id="reset-btn-b" type="button" class="reset-btn">重置</button>
+          </div>
+          <p id="status-b" class="status">状态：待开始</p>
+          <p id="peer-hint-b" class="peer-hint" hidden>对方已揭晓 🎉</p>
+        </section>
+      </div>
     </main>
     <script type="module" src="/src/main.js"></script>
   </body>
