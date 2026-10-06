@@ -10,6 +10,10 @@ import { interpolatePoints } from '../src/scratch-card/geometry.js';
 import { createStateMachine } from '../src/scratch-card/state.js';
 import { createFrameBatcher } from '../src/scratch-card/frame.js';
 import { computeStep, ratioFromImageData } from '../src/scratch-card/measure.js';
+import {
+  createScratchCardRegistry,
+  resolveDevicePixelRatio,
+} from '../src/scratch-card/registry.js';
 
 // §3.2 R3：文档给定场景 —— 80px CSS 跳变（快速滑动）。
 test('§3.2 插值补点：80px CSS 跳变（dpr=2）下相邻点间距不超过笔刷物理半径', () => {
@@ -196,4 +200,90 @@ test('§3.1 alpha<16 判透明：构造半刮 ImageData 得到约 50% ratio', ()
   edge[7] = 16;
   const r2 = ratioFromImageData({ data: edge }, 2, 1, 1);
   assert.equal(r2.cleared, 1);
+});
+
+// ---------- 多实例：注册表与全局 dpr 决策 ----------
+
+test('实例注册表：注册/注销正确，重复注销幂等', () => {
+  const registry = createScratchCardRegistry();
+
+  const idA = registry.register(2);
+  const idB = registry.register(1);
+  assert.notEqual(idA, idB, '每个实例必须得到唯一 id');
+  assert.equal(registry.size(), 2);
+  assert.deepEqual([...registry.dprCaps()].sort(), [1, 2]);
+
+  registry.unregister(idA);
+  assert.equal(registry.size(), 1);
+  assert.deepEqual(registry.dprCaps(), [1], '注销 A 后 B 必须完好');
+
+  // 重复 destroy 幂等：对同一 id 反复注销不报错、不影响其余实例
+  registry.unregister(idA);
+  registry.unregister(idA);
+  assert.equal(registry.size(), 1);
+  assert.deepEqual(registry.dprCaps(), [1]);
+
+  // 注销不存在的 id 同样安全
+  registry.unregister(9999);
+  assert.equal(registry.size(), 1);
+
+  registry.unregister(idB);
+  assert.equal(registry.size(), 0);
+  assert.deepEqual(registry.dprCaps(), []);
+});
+
+test('实例注册表：调试钩子按实例隔离，注销后返回 null', () => {
+  const registry = createScratchCardRegistry();
+  const idA = registry.register(2);
+  const idB = registry.register(2);
+
+  registry.setInternals(idA, () => ({ tag: 'A' }));
+  registry.setInternals(idB, () => ({ tag: 'B' }));
+  assert.equal(registry.getInternals(idA).tag, 'A');
+  assert.equal(registry.getInternals(idB).tag, 'B');
+
+  registry.unregister(idA);
+  assert.equal(registry.getInternals(idA), null, 'destroy 后钩子必须失效');
+  assert.equal(registry.getInternals(idB).tag, 'B', '其余实例钩子不受影响');
+});
+
+test('dpr 决策：cap2 先建 + cap1 后建，全局 dpr 不被后来者拉低', () => {
+  const registry = createScratchCardRegistry();
+  registry.register(2);
+  assert.equal(
+    resolveDevicePixelRatio(3, registry.dprCaps()),
+    2,
+    '单实例 cap2：dpr = min(3, 2)',
+  );
+
+  registry.register(1);
+  assert.equal(
+    resolveDevicePixelRatio(3, registry.dprCaps()),
+    2,
+    '后建 cap1 不得拉低先建实例的 retina 缩放（取 max cap）',
+  );
+});
+
+test('dpr 决策：cap1 先建 + cap2 后建，全局 dpr 抬升到 2', () => {
+  const registry = createScratchCardRegistry();
+  registry.register(1);
+  assert.equal(
+    resolveDevicePixelRatio(3, registry.dprCaps()),
+    1,
+    '单实例 cap1：dpr = min(3, 1)',
+  );
+
+  registry.register(2);
+  assert.equal(
+    resolveDevicePixelRatio(3, registry.dprCaps()),
+    2,
+    '后建 cap2 抬高全局封顶（先建实例在自身下次 relayout 时一致地采用）',
+  );
+});
+
+test('dpr 决策：窗口 dpr 低于所有 cap 时取窗口值，异常输入兜底为 1', () => {
+  assert.equal(resolveDevicePixelRatio(1.5, [2, 3]), 1.5);
+  assert.equal(resolveDevicePixelRatio(undefined, [2]), 1);
+  assert.equal(resolveDevicePixelRatio(0, [2]), 1);
+  assert.equal(resolveDevicePixelRatio(3, []), 1, '无存活实例时回退 cap=1');
 });

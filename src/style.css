@@ -16,7 +16,7 @@ body {
 }
 
 .page {
-  max-width: 460px;
+  max-width: 860px;
   margin: 0 auto;
   padding: 28px 16px 48px;
   text-align: center;
@@ -34,24 +34,33 @@ body {
   color: rgba(242, 238, 252, 0.65);
 }
 
-/* 窄屏用 transform 等比缩放显示；缩放不改变布局盒尺寸，
-   逻辑坐标恒为 375x500，ResizeObserver 不会因缩放触发 relayout。 */
-.card-viewport {
-  container-type: inline-size;
-  position: relative;
-  height: min(500px, 133.333cqw); /* 500 * min(1, cqw/375)，cqw 占比形式 */
+/* 同页两张卡片并排（窄屏自动换行），各自独立实例。 */
+.cards-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  justify-content: center;
+  align-items: flex-start;
 }
 
-/* §7.1：奖品层 <img> 绝对定位铺底，Fabric 容器覆盖其上；固定 375x500。 */
+/* 列宽随卡片逻辑宽弹性收缩；--card-w/--card-h 由内联样式按卡注入。 */
+.card-column {
+  flex: 0 1 var(--card-w);
+  min-width: 240px;
+}
+
+/* 流式尺寸：viewport 保持卡片宽高比，host 填满；
+   尺寸变化由组件内 ResizeObserver 走 §4.5 relayout 重映射。 */
+.card-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--card-ar);
+}
+
+/* §7.1：奖品层 <img> 绝对定位铺底，Fabric 容器覆盖其上。 */
 .card-host {
   position: absolute;
-  top: 0;
-  /* 缩放后视觉半宽居中：left = 50% 容器宽 - 187.5*scale */
-  left: calc(50cqw - min(187.5px, 50cqw));
-  width: 375px;
-  height: 500px;
-  transform: scale(min(1, 0.266667cqw)); /* 375/375=1；每 cqw 贡献 1/375 */
-  transform-origin: top left;
+  inset: 0;
   border-radius: 18px;
   overflow: hidden;
   box-shadow:
@@ -124,7 +133,15 @@ body {
 }
 
 .status {
-  margin-top: 14px;
+  margin: 0;
   font-size: 13px;
   color: rgba(242, 238, 252, 0.7);
+}
+
+/* 对方卡片揭晓时的联动提示 */
+.peer-hint {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffd86f;
 }

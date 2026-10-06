@@ -8,6 +8,11 @@ import { createStateMachine } from './state.js';
 import { createFrameBatcher } from './frame.js';
 import { computeStep, measureCoat } from './measure.js';
 import { createCoatCanvas, loadPatternImage } from './coat.js';
+import {
+  sharedRegistry,
+  ensureDebugHook,
+  resolveDevicePixelRatio,
+} from './registry.js';
 
 // §7.3 六条硬性约束在本文件中的对应位置：
 //   约束1 涂层对象禁 clipPath/shadow/滤镜/Group —— buildCoatImage()
@@ -54,6 +59,11 @@ export function createScratchCard(options) {
   if (!el || el.tagName !== 'CANVAS') {
     throw new Error('createScratchCard: el 必须是一个 <canvas> 元素');
   }
+
+  // 多实例：创建即注册（同步），destroy 时注销；dpr 全局封顶取所有存活
+  // 实例 dprCap 的最大值（决策理由见 registry.js 头部注释）。
+  const instanceId = sharedRegistry.register(dprCap);
+  ensureDebugHook();
 
   const state = createStateMachine({ threshold, onProgress, onComplete });
   const batcher = createFrameBatcher();
@@ -343,10 +353,8 @@ export function createScratchCard(options) {
     // 约束4：新 dpr 以当前 getRetinaScaling() 为准（跨屏拖动 dpr 可能变化）。
     // 先更新封顶 dpr（须早于 Fabric 重建 backstore），再走唯一尺寸入口
     // setDimensions（约束3）；coat 重建依赖最终的 dpr/cssW/cssH。
-    config.devicePixelRatio = Math.min(
-      typeof window !== 'undefined' && window.devicePixelRatio ? window.devicePixelRatio : 1,
-      dprCap,
-    );
+    // 多实例：全局封顶取存活实例 dprCap 最大值，本实例 cap 只参与不独占。
+    applyGlobalDprCap();
     cssW = nextCssW;
     cssH = nextCssH;
     fabricCanvas.setDimensions({ width: nextCssW, height: nextCssH });
@@ -420,6 +428,9 @@ export function createScratchCard(options) {
   function destroy() {
     if (destroyed) return;
     destroyed = true;
+    // 注销实例（幂等）：此后 __scratchCardInternals(id) 返回 null，
+    // 其余实例的监听/ResizeObserver/dpr 决策均不受影响。
+    sharedRegistry.unregister(instanceId);
     batcher.destroy();
     if (resizeRafId) {
       cancelAnimationFrame(resizeRafId);
@@ -449,6 +460,15 @@ export function createScratchCard(options) {
     return currentRatio;
   }
 
+  // 全局 dpr 封顶 = min(window.devicePixelRatio, max(存活实例 dprCap))。
+  // 只能在 new Canvas / setDimensions 之前调用（fabric 在该处烘焙 backstore）。
+  function applyGlobalDprCap() {
+    config.devicePixelRatio = resolveDevicePixelRatio(
+      typeof window !== 'undefined' ? window.devicePixelRatio : 1,
+      sharedRegistry.dprCaps(),
+    );
+  }
+
   // ---------- §7.4 初始化（严格按顺序） ----------
 
   let resizeObserver = null;
@@ -469,10 +489,9 @@ export function createScratchCard(options) {
     el.parentNode.insertBefore(prize, el);
 
     // §7.4-1：dpr 封顶必须在 new Canvas 之前（高 dpr 机 readback/绘制成本控制）。
-    config.devicePixelRatio = Math.min(
-      typeof window !== 'undefined' && window.devicePixelRatio ? window.devicePixelRatio : 1,
-      dprCap,
-    );
+    // 多实例：fabric 的 config.devicePixelRatio 是模块级单例，无法按实例
+    // 各自封顶；统一取存活实例 dprCap 最大值（决策见 registry.js）。
+    applyGlobalDprCap();
 
     // §7.4-2：场景背景透明、禁选中、不启用缩放平移（viewportTransform 恒单位阵）。
     fabricCanvas = new Canvas(el, {
@@ -520,9 +539,13 @@ export function createScratchCard(options) {
     // §7.4-6：add -> 绑事件 -> 首帧 requestRenderAll。
     fabricCanvas.add(coatImage);
     // 非 API 的内部自检钩子（不进返回值，仅用于自动化验收 R12/约束1/对象计数）。
-    if (typeof window !== 'undefined') {
-      window.__scratchCardInternals = () => ({ fabricCanvas, coatImage, coatCanvas, dpr });
-    }
+    // 多实例：按实例 id 隔离，window.__scratchCardInternals(instanceId) 取本实例。
+    sharedRegistry.setInternals(instanceId, () => ({
+      fabricCanvas,
+      coatImage,
+      coatCanvas,
+      dpr,
+    }));
     fabricCanvas.on({
       'mouse:down': onMouseDown,
       'mouse:move': onMouseMove,
